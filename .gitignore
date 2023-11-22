@@ -1,0 +1,9 @@
+
+# dependencies
+/frontend/node_modules
+/frontend/package-lock.json
+/backend/node_modules
+/backend/package_lock.json
+/scrape/node_modules
+/scrape/package_lock.json
+
