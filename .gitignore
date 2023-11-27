@@ -6,4 +6,5 @@
 /backend/package_lock.json
 /scrape/node_modules
 /scrape/package_lock.json
+/cloudflare/node_modules
 

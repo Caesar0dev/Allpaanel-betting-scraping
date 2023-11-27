@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+var userAgent = require('user-agents');
 // const utils = require("./utils");
 
 async function handleScraping() {
@@ -115,6 +116,8 @@ async function handleScraping() {
         await page.goto('https://d247.com/', {
             timeout: 300000
         });
+        await page.setUserAgent(userAgent.random().toString())
+
         console.log("page loaded!");
 
         // await browser.close();
@@ -130,3 +133,5 @@ async function handleScraping() {
 handleScraping().then(res => {
     // console.log('handle scraping have done!!')
 })
+
+// ---------------------------------------------
