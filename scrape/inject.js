@@ -6,7 +6,7 @@ const i = setInterval(() => {
         window.turnstile.render = (a, b) => {
             let params = {
                 sitekey: b.sitekey,
-                pageurl: 'https://d247.com/',
+                pageurl: 'https://www.allpaanel.com/',
                 data: b.cData,
                 pagedata: b.chlPageData,
                 action: b.action,
