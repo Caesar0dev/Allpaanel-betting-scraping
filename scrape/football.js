@@ -5,7 +5,7 @@ import { readFileSync } from "fs";
 const APIKEY = "4679dfcd5b6712edad67469236c15362";
 const solver = new Solver(APIKEY);
 
-const launchCricket = async () => {
+const launchFootball = async () => {
     const browser = await launch({
         headless: false,
         // devtools: true,
@@ -54,18 +54,54 @@ const launchCricket = async () => {
         }
     });
 
+
+    await page.goto('https://www.allpaanel.com/', { waitUntil: 'networkidle2', timeout: 0 });
+    // await page.goto("https://emload.com/");
+    await page.reload();
+
+    await delay(25000);
+
+    // login
+    const userIdPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[1]/input';
+    const userIdField = await page.$x(userIdPath);
+    await userIdField[0].type('jcpbook1');
+
+    const userPassPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[2]/input';
+    const userPassField = await page.$x(userPassPath);
+    await userPassField[0].type('Abcd2233');
+
+    await delay(5000);
+    // click login button
+    const loginButtonPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[3]/button';
+    const [loginButton] = await page.$x(loginButtonPath);
+    await loginButton.click({timeout:300000});
+    // close modal
+    await delay(10000);
+    try {
+        const modalCloseButtPath = '/html/body/div[3]/div[1]/div/div/header/button';
+        const [modalCloseButton] = await page.$x(modalCloseButtPath);
+        await modalCloseButton.click({timeout:300000});
+    } catch (error) {
+        console.log("No modal!")
+    }
+    
+    // click foot button
+    const footButtonPath = '//*[@id="home-events"]/li[1]/a';
+    const [footButton] = await page.$x(footButtonPath);
+    await footButton.click({timeout:300000});
+    await delay(5000);
+
+    
     /////////////////////////////// start hook response ////////////////////////////////////
 
     await page.setRequestInterception(true);
 
     page.on('response', async (response) => {
 
-        let count = 0;
-        
         const url = response.url();
 
         // Check if the response URL matches the desired URL
-        if (url === 'https://www.allpaanel.com/api/user/gamehighlight') {
+        if (url === 'https://www.allpaanel.com/api/user/gamehighlightall2') {
             const responseBody = await response.text();
 
             console.log("response data >>> ", responseBody.length);
@@ -81,7 +117,7 @@ const launchCricket = async () => {
                 const match = decryptedData[i];
                 const matchID = match.gameId;
                 const matchType = match.eid;
-                const matchURL = `https://www.allpaanel.com/game-detail/${matchID}`;
+                const matchURL = `https://www.allpaanel.com/game-detail-other/1/${matchID}`;
 
                 async function launchMatch() {
                     const page = await browser.newPage();
@@ -99,7 +135,7 @@ const launchCricket = async () => {
                         let decryptedGetData = null;
                         let decryptedUserData = null;
 
-                        if (response.url().includes('getdata')) {
+                        if (response.url().includes('getgamedata2')) {
                             try {
                                 const responseText = await response.text();
                                 decryptedGetData = await page.evaluate((responseText) => {
@@ -127,11 +163,11 @@ const launchCricket = async () => {
                         //     }
                         // }
 
-                        const testCricketURL = `http://localhost:5000/cricketdata`;
+                        const testFootURL = `http://localhost:5000/soccerdata`;
                         // const resultData = {getdata: decryptedGetData, userdata: decryptedUserData}
                         const resultData = {getdata: decryptedGetData}
                         try {
-                            fetch(testCricketURL, {
+                            fetch(testFootURL, {
                                 method: "POST",
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -170,38 +206,7 @@ const launchCricket = async () => {
     await page.setRequestInterception(false);
 
     /////////////////////////////// end hook response ////////////////////////////////////
-
-    await page.goto('https://www.allpaanel.com/', { waitUntil: 'networkidle2', timeout: 0 });
-    // await page.goto("https://emload.com/");
-    await page.reload();
-
-    await delay(25000);
-
-    // login
-    const userIdPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[1]/input';
-    const userIdField = await page.$x(userIdPath);
-    await userIdField[0].type('jcpbook1');
-
-    const userPassPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[2]/input';
-    const userPassField = await page.$x(userPassPath);
-    await userPassField[0].type('Abcd2233');
-
-    await delay(5000);
-    // click login button
-    const loginButtonPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[3]/button';
-    // console.log("loginButton >>> ", loginButtonPath);
-    const [loginButton] = await page.$x(loginButtonPath);
-    await loginButton.click({timeout:300000});
-    // close modal
-    await delay(10000);
-    try {
-        const modalCloseButtPath = '/html/body/div[3]/div[1]/div/div/header/button';
-        const [modalCloseButton] = await page.$x(modalCloseButtPath);
-        await modalCloseButton.click({timeout:300000});
-    } catch (error) {
-        console.log("No modal!")
-    }
         
 };
 
-launchCricket();
+launchFootball();
