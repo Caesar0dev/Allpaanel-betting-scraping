@@ -1,6 +1,6 @@
 console.clear = () => console.log('Console was cleared')
 const i = setInterval(() => {
-    console.log('there')
+    // console.log('there')
     if (window.turnstile) {
         clearInterval(i)
         window.turnstile.render = (a, b) => {
