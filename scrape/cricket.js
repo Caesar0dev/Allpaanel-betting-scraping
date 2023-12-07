@@ -50,38 +50,43 @@ const launchCricket = async () => {
                 }, delay);
             } catch (e) {
                 console.log(e.err);
-                // reject();
             }
         } else {
         }
     });
 
     /////////////////////////////// start hook response ////////////////////////////////////
-
+    let x_csrf_token = null;
+    let x_xsrf_token = null;
     await page.setRequestInterception(true);
+
+    page.on('request', async (request) => {
+        const requestHeaders = request.headers();
+
+        // You can also check for specific headers
+        if (requestHeaders['x-csrf-token']) {
+            x_csrf_token = requestHeaders['x-csrf-token'];
+        }
+        if (requestHeaders['x-xsrf-token']) {
+            x_xsrf_token = requestHeaders['x-xsrf-token'];
+        }
+    });
 
     page.on('response', async (response) => {
 
-        let count = 0;
-        
         const url = response.url();
 
         // Check if the response URL matches the desired URL
         if (url === 'https://www.allpaanel.com/api/user/gamehighlight') {
-            const responseBody = await response.text();
 
-            console.log("response data >>> ", responseBody);
-            // const encryptedBody = "xPjkbuyevfVwolWhLWhy7HFy7a46TSisqTcfxuZwLi2kitBf7o4SsssL54uzv7TzPrTt4FE9ZbNcLQdhC09903csa5TjnhR8iw514qn8sto=##@##989108fa038b945f2908b98636019154##@##f636113cec29885a";
-            // console.log("encryptedBody >>> ", encryptedBody);
+            const responseBody = await response.text()
+
             try {
                 const decryptedData = await page.evaluate((responseBody) => {
-                    // console.log("=========>>>>>>>>>>>>>>>>>>>>>>>> ", responseBody);
                     const responseJSONData = CryptojsDecrypt(responseBody);
-                    // const decryptedBody = CryptojsDecrypt(encryptedBody);
                     return responseJSONData.data;
                 }, responseBody);
-                console.log("response JSON >>> ", decryptedData);
-                let matchURLs = [];
+
                 for (let i = 0; i < decryptedData.length; i++) {
                     const match = decryptedData[i];
                     const matchID = match.gameId;
@@ -90,81 +95,98 @@ const launchCricket = async () => {
                     const vir = match.vir;
                     let matchURL = null;
                     let apiTag = null;
-                    // let fetchBody = null;
+                    let dataToServer = null;
 
-                    if (vir == 0) {
-                        matchURL = `https://www.allpaanel.com/casino/cricketv/${matchID}`;
-                        apiTag = 'https://www.allpaanel.com/api/cricketv/data';
-                        // newRequestBody = {gameId: matchID, fn: 0, ism: 0, dataid: '682406', mod: 101}
-                        // fetchBody = "";
-                    } else if (vir == 1) {
+                    if (vir == 1) {
                         matchURL = `https://www.allpaanel.com/game-detail/${matchID}`;
-                        apiTag = 'https://www.allpaanel.com/api/game/getdata';
-                        // fetchBody = "{\"data\":\"5jkAo2gAyji39q9i8jMJM+/O0mT2g4dw6pr13W20uZ++hrbbz3QWQ478RAxLSjBbESHCIhAVLvLF9szS4yGFjEp7MLgWXXt3AST5GmQWXYo=##@##376392c8cb90ed01378fb86541009fc5##@##2423f71419682726\"}";
-                    } else if (vir ==2) {
+                        apiTag = '/api/game/getdata';
+                        dataToServer = await page.evaluate(async (matchID, dataID, apiTag, matchURL, x_csrf_token, x_xsrf_token) => {
+                            // defined body
+                            const resultBody = {gameId: matchID, fn: 0, ism: 0, dataid: dataID, mod: 101};
+                            const encryptedresult = CryptojsEncrypt(resultBody);
+                            const result = await fetch(apiTag, {
+                                "headers": {
+                                    "accept": "application/json, text/plain, */*",
+                                    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
+                                    "authorization": "Bearer e224786baa223506ecf3ae69a9b81013408353f1",
+                                    "content-type": "application/json;charset=UTF-8",
+                                    "sec-ch-ua": "\"Google Chrome\";v=\"119\", \"Chromium\";v=\"119\", \"Not?A_Brand\";v=\"24\"",
+                                    "sec-ch-ua-mobile": "?0",
+                                    "sec-ch-ua-platform": "\"Windows\"",
+                                    "sec-fetch-dest": "empty",
+                                    "sec-fetch-mode": "cors",
+                                    "sec-fetch-site": "same-origin",
+                                    "x-csrf-token": x_csrf_token,
+                                    "x-requested-with": "XMLHttpRequest",
+                                    "x-xsrf-token": x_xsrf_token,
+                                    // "cookie": "_cfuvid=zsACIycUMvP_pM8yTPrsKxsF8yrXO9LaqiLR1Xnw4KY-1701523582768-0-604800000; cf_clearance=IFMzrYMG9.XLCekqSl8Pv3BytSS_HhYtfdkOSo_UQrs-1701731921-0-1-312ca73.6ba6483.54139593-160.2.1701731921; betToken=eyJpdiI6Inh1VXk0M0RFXC9jSkUzQVJzOXlKUjJBPT0iLCJ2YWx1ZSI6IlJwNnF3Q2NYN0xGVkw2U3VFOXRtdUFNakwxVGw4akNjbG9idzQxdVkycW1HZ0l0SmJyZkxYOGx3M3VCdVBcL2djIiwibWFjIjoiMmVmNGFkMmVmNzdkZDQzMWU4NWZlMmZlNmFlZWJiZTc3M2ZmYmMwNDdiNWFlNTFkOWJjMDEwNzVmOWZjYmRiNiJ9; rememberMe=true; XSRF-TOKEN=eyJpdiI6Imk5ZDM0TmIzbVRjVW5HOFVcLzZjY1ZBPT0iLCJ2YWx1ZSI6IkJjWDc2R2g5c0VqMk50SFkwXC9QQTU1eTFcL1lMd1Jia0ViT0RXaE9tcW90alppVFJHUFJVRUFPdkQrSHpEVFRydEVmR0JjZjZwOE0zMGo0dnc1RGVxd2JlYjF1cFwvOHlxUnJ5QVlDZks0K0RJRStrOXJpVGtTbjVzaVNPQkpNbWZ3IiwibWFjIjoiZjMzOWQ3ZDA3MGIwZDk1MTU3MWNlZWUwOTJhYmI4ZDhiOWVmOThlMDE4YzU4ZDM4Y2FhZjI2OTQzYjFiNTg2NSJ9; laravel_session=eyJpdiI6Ik42MEVESnZQbzNXNXBxdExvODhZMHc9PSIsInZhbHVlIjoiaFNCZFwvSzZCMEt0RlpScHoxajUzVjI0amg4dVNITm83T3RDU0srYkVFOHc4dmtSZGVlMkhQazNBcXRTcFFUZDk0aHRLRTZLSGxwZjVDN0RcL2xDdlwvMmN5dmdYcTFYMFZab1d6TkhMTTRyRFwvc09ZVVZtb0krNUZ6MEhPbUxEclBpIiwibWFjIjoiZGIyNzk2YmVhM2MzMDIwZTE2N2I3MjM1OWJmZDY5ZDI4MDAxYzE2NTY3YThmZTNmYzAxYjI1ZDJhNjNmN2RlMCJ9",
+                                    "Referer": matchURL,
+                                    "Referrer-Policy": "strict-origin-when-cross-origin"
+                                },
+                                "body": `{"data": "${encryptedresult.data}"}`,
+                                "method": "POST"
+                            })
+                                .then(response => response.text())
+                                .then(data => {
+                                    console.log("response data ---->>>>> ", data);
+                                    const resultDecryptedData = CryptojsDecrypt(data);
+                                    console.log("success! ----->>>>> ", resultDecryptedData);
+                                    return resultDecryptedData;
+                                })
+                                .catch(error => {
+                                    console.log("My Error : ", error);
+                                });
+                                
+                            return result;
+                        }, matchID, dataID, apiTag, matchURL, x_csrf_token, x_xsrf_token);
+
+                    } else {
                         matchURL = `https://www.allpaanel.com/casino/cricketvirtual/${matchID}`;
-                        apiTag = 'https://www.allpaanel.com/api/cricketv/data';
-                        // fetchBody = "";
+                        apiTag = '/api/cricketv/data';
+                        dataToServer = await page.evaluate(async (matchID, dataID, apiTag, matchURL, x_csrf_token, x_xsrf_token, matchType) => {
+                            // defined body
+                            const resultBody = {gameId: matchID, fn: 0, ism: 0, gameType: matchType};
+                            const encryptedresult = CryptojsEncrypt(resultBody);
+                            const result = await fetch(apiTag, {
+                                "headers": {
+                                    "accept": "application/json, text/plain, */*",
+                                    "accept-language": "en-US,en;q=0.9",
+                                    "authorization": "Bearer 82745df2c92b8bd4e9b38bb06c8a955d0c3fc3c8",
+                                    "content-type": "application/json;charset=UTF-8",
+                                    "sec-ch-ua": "\"Chromium\";v=\"119\", \"Not?A_Brand\";v=\"24\"",
+                                    "sec-ch-ua-mobile": "?0",
+                                    "sec-ch-ua-platform": "\"Windows\"",
+                                    "sec-fetch-dest": "empty",
+                                    "sec-fetch-mode": "cors",
+                                    "sec-fetch-site": "same-origin",
+                                    "x-csrf-token": x_csrf_token,
+                                    "x-requested-with": "XMLHttpRequest",
+                                    "x-xsrf-token": x_xsrf_token,
+                                    // "cookie": "_cfuvid=CvqNU4Wira6k2kMSEHAOvqwIfsKrU3afOI9T7sJ_lzI-1701975133090-0-604800000; cf_clearance=PIsCUjSbnaF2TbRX.jvCxBM4_.Ltdwp34Yk_LOayTrM-1701975141-0-1-312ca73.209218c8.54139593-250.1.1701975141; betToken=eyJpdiI6IkRmOERyUXZPWEdnUXgwZkozZ1dEWFE9PSIsInZhbHVlIjoiQldoQzdPSTNPWFdpcHVKMXl4aVduRlZvRUZWSndraER1bEx5bnN2UjJnRkRXRExremNNZTJLMXRIU3FTZFJqNSIsIm1hYyI6ImM4YmVhN2NhMTczOWY4ZDM0NmIyNWEwOGI4MjRmNGRjN2Y3ZDMwZGMxZDFhNTRjMGVlOTYwNWRjNTk3NWVlN2UifQ%3D%3D; rememberMe=true; XSRF-TOKEN=eyJpdiI6IkVON1VCNUZRSUtFSXp0YmxPM3BIemc9PSIsInZhbHVlIjoiemx0K1BTQ3JQcTJPd3JzblRNUWZweXE4cUYrc0N5QmlqR1dld3E5MGwyZzBndlwvK1hXcFFUdnNcL3dkTko5blRpTnRMME5xOG9EaGpaZ3QrcitGMkx0VWs2TG1XdW55MXNFVUM2dTZXVElZSVJpMTdtdE5aYzEyMmNtRUJDQk5YMSIsIm1hYyI6IjhjNTlmYjYwMTliYzNkNTFhNmIxNjYyN2FlNmQ1MjRkMDZmMTVmNjUwNzllNWQ1MTZjNjE4NWZlMGY2NTQ5ZWQifQ%3D%3D; laravel_session=eyJpdiI6IlBBd2Z1YzZHMTBVMTJcL1ZlVU94ZjJ3PT0iLCJ2YWx1ZSI6Ikt1Y2xJRUVvZGsrNWhsRTEycjArNUs1MUE1QTFYN3pzT1hLQ2ZtTXhPVmI2NDc5aHN6bVRwc2ZrSm5vamNRSXNoaEE2NUx0NHJBR0laMW5SRFdJbVUrVExIY3NCeldvWXpvTm5yWXdaTXBOS3lcL1NSWlYrSXBqWktKdm1xcUpNVyIsIm1hYyI6ImViYzJkOTQ4NTlmMTNhOWVlM2RmYTI0YTU2MWUwZjYyNzNlOTk0ZTZkMzZjM2VlZjViODdlOWZkZGM0NTk0NWEifQ%3D%3D",
+                                    "Referer": matchURL,
+                                    "Referrer-Policy": "strict-origin-when-cross-origin"
+                                },
+                                "body": `{"data": "${encryptedresult.data}"}`,
+                                "method": "POST"
+                            })
+                                .then(response => response.text())
+                                .then(data => {
+                                    console.log("response data ---->>>>> ", data);
+                                    const resultDecryptedData = CryptojsDecrypt(data);
+                                    console.log("success! ----->>>>> ", resultDecryptedData);
+                                    return resultDecryptedData;
+                                })
+                                .catch(error => {
+                                    console.log("My Error : ", error);
+                                });
+                                
+                            return result;
+                        }, matchID, dataID, apiTag, matchURL, x_csrf_token, x_xsrf_token, matchType);
                     }
 
-                    const encryptedBody = await page.evaluate((matchID, dataID, apiTag, matchURL) => {
-                        const resultBody = {gameId: matchID, fn: 0, ism: 0, dataid: dataID, mod: 101};
-                        let functionResult = "initial value";
-                        const encryptedresult = CryptojsEncrypt(resultBody);
-                        console.log("COOKIE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ");
-                        fetch(apiTag, {
-                            "headers": {
-                                "accept": "application/json, text/plain, */*",
-                                "accept-language": "en-US,en;q=0.9,ko;q=0.8",
-                                "authorization": "Bearer e224786baa223506ecf3ae69a9b81013408353f1",
-                                "content-type": "application/json;charset=UTF-8",
-                                "sec-ch-ua": "\"Google Chrome\";v=\"119\", \"Chromium\";v=\"119\", \"Not?A_Brand\";v=\"24\"",
-                                "sec-ch-ua-mobile": "?0",
-                                "sec-ch-ua-platform": "\"Windows\"",
-                                "sec-fetch-dest": "empty",
-                                "sec-fetch-mode": "cors",
-                                "sec-fetch-site": "same-origin",
-                                // "x-csrf-token": "hrdkOjb7asgixLbVBO0XSc0xgjRPKAiIGbJnC6pg",
-                                "x-requested-with": "XMLHttpRequest",
-                                // "x-xsrf-token": "eyJpdiI6Imk5ZDM0TmIzbVRjVW5HOFVcLzZjY1ZBPT0iLCJ2YWx1ZSI6IkJjWDc2R2g5c0VqMk50SFkwXC9QQTU1eTFcL1lMd1Jia0ViT0RXaE9tcW90alppVFJHUFJVRUFPdkQrSHpEVFRydEVmR0JjZjZwOE0zMGo0dnc1RGVxd2JlYjF1cFwvOHlxUnJ5QVlDZks0K0RJRStrOXJpVGtTbjVzaVNPQkpNbWZ3IiwibWFjIjoiZjMzOWQ3ZDA3MGIwZDk1MTU3MWNlZWUwOTJhYmI4ZDhiOWVmOThlMDE4YzU4ZDM4Y2FhZjI2OTQzYjFiNTg2NSJ9",
-                                // "cookie": "_cfuvid=zsACIycUMvP_pM8yTPrsKxsF8yrXO9LaqiLR1Xnw4KY-1701523582768-0-604800000; cf_clearance=IFMzrYMG9.XLCekqSl8Pv3BytSS_HhYtfdkOSo_UQrs-1701731921-0-1-312ca73.6ba6483.54139593-160.2.1701731921; betToken=eyJpdiI6Inh1VXk0M0RFXC9jSkUzQVJzOXlKUjJBPT0iLCJ2YWx1ZSI6IlJwNnF3Q2NYN0xGVkw2U3VFOXRtdUFNakwxVGw4akNjbG9idzQxdVkycW1HZ0l0SmJyZkxYOGx3M3VCdVBcL2djIiwibWFjIjoiMmVmNGFkMmVmNzdkZDQzMWU4NWZlMmZlNmFlZWJiZTc3M2ZmYmMwNDdiNWFlNTFkOWJjMDEwNzVmOWZjYmRiNiJ9; rememberMe=true; XSRF-TOKEN=eyJpdiI6Imk5ZDM0TmIzbVRjVW5HOFVcLzZjY1ZBPT0iLCJ2YWx1ZSI6IkJjWDc2R2g5c0VqMk50SFkwXC9QQTU1eTFcL1lMd1Jia0ViT0RXaE9tcW90alppVFJHUFJVRUFPdkQrSHpEVFRydEVmR0JjZjZwOE0zMGo0dnc1RGVxd2JlYjF1cFwvOHlxUnJ5QVlDZks0K0RJRStrOXJpVGtTbjVzaVNPQkpNbWZ3IiwibWFjIjoiZjMzOWQ3ZDA3MGIwZDk1MTU3MWNlZWUwOTJhYmI4ZDhiOWVmOThlMDE4YzU4ZDM4Y2FhZjI2OTQzYjFiNTg2NSJ9; laravel_session=eyJpdiI6Ik42MEVESnZQbzNXNXBxdExvODhZMHc9PSIsInZhbHVlIjoiaFNCZFwvSzZCMEt0RlpScHoxajUzVjI0amg4dVNITm83T3RDU0srYkVFOHc4dmtSZGVlMkhQazNBcXRTcFFUZDk0aHRLRTZLSGxwZjVDN0RcL2xDdlwvMmN5dmdYcTFYMFZab1d6TkhMTTRyRFwvc09ZVVZtb0krNUZ6MEhPbUxEclBpIiwibWFjIjoiZGIyNzk2YmVhM2MzMDIwZTE2N2I3MjM1OWJmZDY5ZDI4MDAxYzE2NTY3YThmZTNmYzAxYjI1ZDJhNjNmN2RlMCJ9",
-                                "Referer": matchURL,
-                                "Referrer-Policy": "strict-origin-when-cross-origin"
-                            },
-                            "body": encryptedresult.data,
-                            "method": "POST"
-                        })
-                            .then(response => {
-                                if (response.ok) {
-                                    console.log("response okay >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-                                    return response.json(); // assuming the response is in JSON format
-                                } else {
-                                    throw new Error("Request failed with status " + response.status);
-                                }
-                            })
-                            .then(data => {
-                                // handle the response data here
-                                const resultDecryptedData = CryptojsDecrypt(data);
-                                sendToDBServer(resultDecryptedData);
-                                functionResult = "success!";
-                            })
-                            .catch(error => {
-                                // handle any errors that occurred during the request
-                                functionResult = error;
-                            });
-
-                        return functionResult;
-
-                    }, matchID, dataID, apiTag, matchURL)
-
-                    console.log("result >>> ", encryptedBody);
-                    // const sendToServer = await page.evaluate((encryptedBody) => {
-                    //     const resultDecryptedData = CryptojsDecrypt(encryptedBody);
-                    //     return resultDecryptedData.data;
-                    // }, encryptedBody);
-                    // await sendToDBServer(sendToServer);
-                    // const fetchBody = encryptedBody;
-                    // console.log("fetch Body >>> ", fetchBody);
+                    console.log("data to server >>> ", dataToServer);
+                    const cricketServerURL = `http://localhost:5000/cricketdata`;
+                    await sendToDBServer(cricketServerURL, dataToServer);
                 }
             } catch (error) {
                 console.log("JSON input error!", error);
@@ -178,7 +200,6 @@ const launchCricket = async () => {
     /////////////////////////////// end hook response ////////////////////////////////////
 
     await page.goto('https://www.allpaanel.com/', { waitUntil: 'networkidle2', timeout: 0 });
-    // await page.goto("https://emload.com/");
     await page.reload();
 
     await delay(35000);
@@ -195,13 +216,8 @@ const launchCricket = async () => {
     await delay(5000);
     // click login button
     const loginButtonPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[3]/button';
-    // console.log("loginButton >>> ", loginButtonPath);
     const [loginButton] = await page.$x(loginButtonPath);
     await loginButton.click({timeout:300000});
-
-    // get cookie
-    const pageCookie = await page.cookies();
-    console.log("Cookie >>> ", pageCookie);
 
     // close modal
     await delay(10000);

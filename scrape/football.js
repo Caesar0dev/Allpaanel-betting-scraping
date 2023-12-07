@@ -1,6 +1,9 @@
 import { launch } from "puppeteer";
 import { Solver } from "2captcha-ts";
 import { readFileSync } from "fs";
+import pkg from 'crypto-js';
+const { CryptoJS } = pkg;
+import {sendToDBServer} from "./utils.js";
 
 const APIKEY = "4679dfcd5b6712edad67469236c15362";
 const solver = new Solver(APIKEY);
@@ -14,7 +17,6 @@ const launchFootball = async () => {
     const preloadFile = readFileSync("./inject.js", "utf8");
     await page.evaluateOnNewDocument(preloadFile);
 
-    
     // Delay function
     function delay(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,18 +50,66 @@ const launchFootball = async () => {
                 }, delay);
             } catch (e) {
                 console.log(e.err);
-                reject();
             }
         } else {
         }
     });
 
+    /////////////////////////////// start hook response ////////////////////////////////////
+    let x_csrf_token = null;
+    let x_xsrf_token = null;
+    await page.setRequestInterception(true);
+
+    page.on('request', async (request) => {
+        const requestHeaders = request.headers();
+
+        // You can also check for specific headers
+        if (requestHeaders['x-csrf-token']) {
+            x_csrf_token = requestHeaders['x-csrf-token'];
+        }
+        if (requestHeaders['x-xsrf-token']) {
+            x_xsrf_token = requestHeaders['x-xsrf-token'];
+        }
+    });
+
+    page.on('response', async (response) => {
+
+        const url = response.url();
+
+        // Check if the response URL matches the desired URL
+        if (url === 'https://www.allpaanel.com/api/user/gamehighlightall2') {
+
+            const responseBody = await response.text()
+            // console.log("response Body >>> ", responseBody);
+
+            try {
+                const decryptedData = await page.evaluate((responseBody) => {
+                    const responseJSONData = CryptojsDecrypt(responseBody);
+                    return responseJSONData.data.t1;
+                }, responseBody);
+
+                console.log("decrypted data >>> ", decryptedData);
+
+                for (let i = 0; i < decryptedData.length; i++) {
+                    const match = decryptedData[i];
+                    const footballServerURL = `http://localhost:5000/soccerdata`;
+                    await sendToDBServer(footballServerURL, match);
+                }
+            } catch (error) {
+                console.log("JSON input error!", error);
+            }
+        }
+    });
+
+    // Disable request interception
+    await page.setRequestInterception(false);
+
+    /////////////////////////////// end hook response ////////////////////////////////////
 
     await page.goto('https://www.allpaanel.com/', { waitUntil: 'networkidle2', timeout: 0 });
-    // await page.goto("https://emload.com/");
     await page.reload();
 
-    await delay(25000);
+    await delay(35000);
 
     // login
     const userIdPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[1]/input';
@@ -75,6 +125,7 @@ const launchFootball = async () => {
     const loginButtonPath = '//*[@id="app"]/div[2]/div/div/div/div/div/div[2]/form/div[3]/button';
     const [loginButton] = await page.$x(loginButtonPath);
     await loginButton.click({timeout:300000});
+
     // close modal
     await delay(10000);
     try {
@@ -84,129 +135,11 @@ const launchFootball = async () => {
     } catch (error) {
         console.log("No modal!")
     }
-    
-    // click foot button
-    const footButtonPath = '//*[@id="home-events"]/li[1]/a';
-    const [footButton] = await page.$x(footButtonPath);
-    await footButton.click({timeout:300000});
-    await delay(5000);
+    await delay(3000);
+    await page.goto('https://www.allpaanel.com/game-list/football');
 
-    
-    /////////////////////////////// start hook response ////////////////////////////////////
+    // await browser.close();
 
-    await page.setRequestInterception(true);
-
-    page.on('response', async (response) => {
-
-        const url = response.url();
-
-        // Check if the response URL matches the desired URL
-        if (url === 'https://www.allpaanel.com/api/user/gamehighlightall2') {
-            const responseBody = await response.text();
-
-            console.log("response data >>> ", responseBody.length);
-
-            const decryptedData = await page.evaluate((responseBody) => {
-                // console.log("=========>>>>>>>>>>>>>>>>>>>>>>>> ", responseBody);
-                const responseJSONData = CryptojsDecrypt(responseBody);
-                return responseJSONData.data;
-            }, responseBody);
-            // console.log("response JSON >>> ", decryptedData);
-
-            for (let i = 0; i < decryptedData.length; i++) {
-                const match = decryptedData[i];
-                const matchID = match.gameId;
-                const matchType = match.eid;
-                const matchURL = `https://www.allpaanel.com/game-detail-other/1/${matchID}`;
-
-                async function launchMatch() {
-                    const page = await browser.newPage();
-    
-                    // Navigate to a page that triggers AJAX requests
-                    await page.goto(matchURL, {
-                        timeout: 300000
-                    });
-                    console.log("match page loaded!");
-                    await page.setRequestInterception(true);
-
-                    // Listen for the 'response' event
-                    page.on('response', async (response) => {
-                        const responseURL = response.url();
-                        let decryptedGetData = null;
-                        let decryptedUserData = null;
-
-                        if (response.url().includes('getgamedata2')) {
-                            try {
-                                const responseText = await response.text();
-                                decryptedGetData = await page.evaluate((responseText) => {
-                                    // console.log("=========>>>>>>>>>>>>>>>>>>>>>>>> ", responseText);
-                                    const matchJSONData = CryptojsDecrypt(responseText);
-                                    return matchJSONData.data;
-                                }, responseText);
-                                console.log("decrypted get data --->>> ", decryptedGetData);
-                            } catch (error) {
-                                console.log(error);
-                            }
-                        }
-                        // if (response.url().includes('userdata')) {
-                        //     try {
-                        //         const responseText = await response.text();
-                        //         decryptedUserData = await page.evaluate((responseText) => {
-                        //             // console.log("=========>>>>>>>>>>>>>>>>>>>>>>>> ", responseText);
-                        //             const matchJSONData = CryptojsDecrypt(responseText);
-                        //             return matchJSONData.data;
-                        //         }, responseText);
-                        //         console.log("decrypted user data --->>> ", decryptedUserData);
-                                
-                        //     } catch (error) {
-                        //         console.log(error);
-                        //     }
-                        // }
-
-                        const testFootURL = `http://localhost:5000/soccerdata`;
-                        // const resultData = {getdata: decryptedGetData, userdata: decryptedUserData}
-                        const resultData = {getdata: decryptedGetData}
-                        try {
-                            fetch(testFootURL, {
-                                method: "POST",
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(resultData),
-                            })
-                                .then((response) => {
-                                    console.log("success");
-                                    // Handle the response data
-                                })
-                                .catch((error) => {
-                                    // console.log("send to server error!");
-                                    console.error("error",error);
-                                    // Handle any errors that occurred during the request
-                                });
-                        } catch (error) {
-                            console.log("send to server error!")
-                        }
-                        console.log("-------------------------------------------------------------");
-                        // const queryUrl = JSON.parse(responseText).url();
-                    })
-                    
-                    // Disable request interception
-                    await page.setRequestInterception(false);
-
-                }
-
-                await launchMatch();
-
-            }
-
-        }
-    });
-    
-    // Disable request interception
-    await page.setRequestInterception(false);
-
-    /////////////////////////////// end hook response ////////////////////////////////////
-        
 };
 
 launchFootball();
