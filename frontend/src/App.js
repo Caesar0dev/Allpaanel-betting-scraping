@@ -7,6 +7,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [cricketrealtimedata, setCricketRealtimedata] = useState('This is Real-time data.');
   const [soccerrealtimedata, setSoccerRealtimedata] = useState('This is Real-time data.');
+  const [scorerealtimedata, setScoreRealtimedata] = useState('This is Score Real-time data.');
   const [tennisrealtimedata, setTennisRealtimedata] = useState('This is Real-time data.');
   
   let showCricket = "";
@@ -63,6 +64,11 @@ export default function App() {
         setSoccerRealtimedata(JSON.stringify(data))
         // Update UI or perform other actions based on the data
       });
+      socket.on("score-receive-data", (data) => {
+        // Handle the received data
+        setScoreRealtimedata(JSON.stringify(data))
+        // Update UI or perform other actions based on the data
+      });
       socket.on("tennis-receive-data", (data) => {
         // Handle the received data
         setTennisRealtimedata(JSON.stringify(data))
@@ -95,6 +101,8 @@ export default function App() {
       <p id='cricketrealtimeData'>{cricketrealtimedata}</p>
       <h1>Soccer Real-time Data:</h1>
       <p id='soccerrealtimeData'>{soccerrealtimedata}</p>
+      <h1>Score Real-time Data:</h1>
+      <p id='scorerealtimeData'>{scorerealtimedata}</p>
       <h1>Tennis Real-time Data:</h1>
       <p id='tennisrealtimeData'>{tennisrealtimedata}</p>
     </div>

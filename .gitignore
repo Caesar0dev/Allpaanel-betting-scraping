@@ -7,4 +7,5 @@
 /scrape/node_modules
 /scrape/package_lock.json
 /cloudflare/node_modules
+/scraper/node_modules
 

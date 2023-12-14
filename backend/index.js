@@ -45,6 +45,15 @@ app.post('/tennisdata', (req, res) => {
 
 });
 
+// receive data from tennis script using ajax
+app.post('/scoredata', (req, res) => {
+  const reqdata = req.body;
+  console.log("score realtime-data >>> ", reqdata);
+  // Define your socket.io event handlers
+  io.emit("score-receive-data", reqdata); // Emit data to the client
+
+});
+
 io.on("connection", (socket) => {
   console.log("A user connected");
 
